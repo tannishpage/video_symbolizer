@@ -1,10 +1,10 @@
 import sys
-if len(sys.argv) != 3:
+if len(sys.argv) < 3:
     print("Usage: python3 video_symbolizer \
-<path to video files> <output folder path>")
+<path to video files> <output folder path> [--vis --output]")
     exit()
-ROOT_DIR = ""
-SORT_DIR = ""
+ROOT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\Mask_RCNN-tensorflow2.0"
+SORT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\sort"
 sys.path.append(ROOT_DIR) # Adding MRCNN root dir to path to import models
 sys.path.append(SORT_DIR) # Adding sort to path to import it
 
@@ -71,6 +71,8 @@ def get_landmark_values(landmark_enums, results):
 # Initializing some global variables
 VIDEO_FOLDER = sys.argv[1]
 OUTPUT_FOLDER = sys.argv[2]
+VIS = "--vis" in sys.argv
+OUTPUT = "--output" in sys.argv
 # Directory to save logs and trained model
 MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 # Local path to trained weights file
@@ -120,14 +122,29 @@ def main():
 
     symbols = {"A":(), "B":(), "C":(), "D":(), "E":(), "F":(), "G":()}
     check = lambda limits, pos: (pos < limits[0]) and (pos > limits[1])
+    if OUTPUT:
+        print("Starting Symbolization Process")
     for video_path in video_paths:
+        if OUTPUT:
+            print(f"Loading in Video {video_path}")
         video = cv2.VideoCapture(os.path.join(VIDEO_FOLDER, video_path))
         tracker = sort.Sort() #Using default tracker settings
         # Dictionary to store symbols for each person
         human_tracked_symbols = dict()
         human_tracked_image = dict() # An image of the person being tracked
+        if OUTPUT:
+            frame_count = 0
+            total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            percentage = frame_count / total_frames * 100
+            sys.stdout.write("\r[{}{}] {:.2f}%".format('='*int(percentage/2),
+                                                '.' *(50 - int(percentage/2)),
+                                                percentage))
+            sys.stdout.flush()
         while True:
             ret, frame = video.read()
+            if OUTPUT:
+                frame_count += 1
+                percentage = frame_count / total_frames * 100
             if ret:
                 RCNN_results = model.detect([frame])
                 r = RCNN_results[0]
@@ -137,10 +154,12 @@ def main():
                     y1, x1, y2, x2 = r['rois'][index]
                     bbox = (x1, y1, x2, y2, r['scores'][index])
                     all_humans_bbox.append(bbox)
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 255, 0), 2)
-                cv2.imshow("Window", frame)
-                if cv2.waitKey(25) & 0xFF == ord('q'):
-                    break
+                    if VIS:
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 255, 0), 2)
+                if VIS:
+                    cv2.imshow("Window", frame)
+                    if cv2.waitKey(25) & 0xFF == ord('q'):
+                        break
                 output = tracker.update(np.array(all_humans_bbox))
                 for human in output:
                     height = y2-y1
@@ -220,6 +239,12 @@ def main():
 
                     if key not in human_tracked_image.keys():
                         human_tracked_image[key] = frame[y1:y2, x1:x2]
+                if OUTPUT:
+                    sys.stdout.write("\r[{}{}] {:.2f}%".format(
+                                                '='*int(percentage/2),
+                                                '.' *(50 - int(percentage/2)),
+                                                percentage))
+                    sys.stdout.flush()
             else:
                 break
         if not os.path.exists(OUTPUT_FOLDER):
