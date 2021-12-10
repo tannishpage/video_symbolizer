@@ -127,8 +127,11 @@ def main():
         # Dictionary to store symbols for each person
         human_tracked_symbols = dict()
         human_tracked_image = dict() # An image of the person being tracked
+        count = 0
         while True:
             ret, frame = video.read()
+            print(count)
+            count += 1
             if ret:
                 RCNN_results = model.detect([frame])
                 r = RCNN_results[0]
@@ -138,18 +141,38 @@ def main():
                     y1, x1, y2, x2 = r['rois'][index]
                     bbox = (x1, y1, x2, y2, r['scores'][index])
                     all_humans_bbox.append(bbox)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 255, 0), 2)
+                cv2.imshow("Window", frame)
+                if cv2.waitKey(25) & 0xFF == ord('q'):
+                    break
                 output = tracker.update(np.array(all_humans_bbox))
                 for human in output:
+                    height = y2-y1
                     x1 = int(human[0])
                     y1 = int(human[1])
                     x2 = int(human[2])
                     y2 = int(human[3])
                     key = human[4]
                     mp_pose_results = pose.process(frame[y1:y2, x1:x2])
+                    if (mp_pose_results.pose_landmarks == None):
+                        print("I'm None")
+                        if key not in human_tracked_symbols.keys():
+                            # Storing left and right symbols
+                            human_tracked_symbols[key] = (["H"],
+                                                          ["H"])
+                        else:
+                            human_tracked_symbols[key][0].append("H")
+                            human_tracked_symbols[key][1].append("H")
+
+                        if key not in human_tracked_image.keys():
+                            human_tracked_image[key] = frame[y1:y2, x1:x2]
+                        continue
+
                     left_hand = get_landmark_values(hand_landmarks_left,
                                                     mp_pose_results)
                     right_hand = get_landmark_values(hand_landmarks_right,
                                                      mp_pose_results)
+                    print(key, left_hand, right_hand)
                     mouth = get_landmark_values(mouth_landmarks,
                                                 mp_pose_results)
                     eyes = get_landmark_values(eye_landmarks,
@@ -158,36 +181,36 @@ def main():
                                                    mp_pose_results)
                     hip = get_landmark_values(hip_landmarks,
                                               mp_pose_results)
-                    shoulder_hip_distance = (hip_pose[0] - shoulder_pos[0],
-                                             hip_pose[1] - shoulder_pos[1])
+                    shoulder_hip_distance = (hip[0] - shoulder[0],
+                                             hip[1] - shoulder[1])
 
-                    third_shoulder_hip = (shoulder_pos[0] +\
+                    third_shoulder_hip = (shoulder[0] +\
                                             shoulder_hip_distance[0]/3,
-                                          shoulder_pos[1] +\
+                                          shoulder[1] +\
                                             shoulder_hip_distance[1]/3)
 
-                    two_third_shoulder_hip = (shoulder_pos[0] +\
+                    two_third_shoulder_hip = (shoulder[0] +\
                                                 2*shoulder_hip_distance[0]/3,
-                                              shoulder_pos[1] +\
+                                              shoulder[1] +\
                                                 2*shoulder_hip_distance[1]/3)
-                    symbols["A"] = (eyes_pos[1], 0)
-                    symbols["B"] = (mouth_pos[1], eyes_pos[1])
-                    symbols["C"] = (shoulder_pos[1], mouth_pos[1])
-                    symbols["D"] = (third_shoulder_hip[1], shoulder_pos[1])
+                    symbols["A"] = (eyes[1], 0)
+                    symbols["B"] = (mouth[1], eyes[1])
+                    symbols["C"] = (shoulder[1], mouth[1])
+                    symbols["D"] = (third_shoulder_hip[1], shoulder[1])
                     symbols["E"] = (two_third_shoulder_hip[1], third_shoulder_hip[1])
-                    symbols["F"] = (hip_pose[1], third_shoulder_hip[1])
-                    symbols["G"] = (height, hip_pose[1])
+                    symbols["F"] = (hip[1], third_shoulder_hip[1])
+                    symbols["G"] = (height, hip[1])
                     #Check which region hands are in
                     left_flag = False
                     right_flag = False
                     left_symbol = ""
                     right_symbol = ""
                     for symbol in symbols.keys():
-                        if check(symbols[symbol], left_hand_pos[1]) and not left_flag:
+                        if check(symbols[symbol], left_hand[1]) and not left_flag:
                             left_symbol = symbol
                             left_flag = True
 
-                        if check(symbols[symbol], right_hand_pos[1]) and not right_flag:
+                        if check(symbols[symbol], right_hand[1]) and not right_flag:
                             right_symbol = symbol
                             right_flag = True
 
@@ -205,6 +228,9 @@ def main():
                         human_tracked_image[key] = frame[y1:y2, x1:x2]
             else:
                 break
+    for key in human_tracked_image.keys():
+        cv2.imwrite("{}.jpg".format(key), human_tracked_image[key])
+    print(human_tracked_symbols)
 
 
 if __name__ == "__main__":
