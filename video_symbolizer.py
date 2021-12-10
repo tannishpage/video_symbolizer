@@ -3,8 +3,8 @@ if len(sys.argv) != 3:
     print("Usage: python3 video_symbolizer \
 <path to video files> <output folder path>")
     exit()
-ROOT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\Mask_RCNN-tensorflow2.0"
-SORT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\sort"
+ROOT_DIR = ""
+SORT_DIR = ""
 sys.path.append(ROOT_DIR) # Adding MRCNN root dir to path to import models
 sys.path.append(SORT_DIR) # Adding sort to path to import it
 
