@@ -81,8 +81,7 @@ if not os.path.exists(COCO_MODEL_PATH):
 
 def main():
     # Read videos
-    video_paths = [os.path.join(VIDEO_FOLDER, file)
-                    for file in os.listdir(VIDEO_FOLDER)
+    video_paths = [file for file in os.listdir(VIDEO_FOLDER)
                     if file.endswith(".mp4")]#os.path.isfile(os.path.join(VIDEO_FOLDER, file))]
 
     mp_drawing = mp.solutions.drawing_utils
@@ -122,16 +121,13 @@ def main():
     symbols = {"A":(), "B":(), "C":(), "D":(), "E":(), "F":(), "G":()}
     check = lambda limits, pos: (pos < limits[0]) and (pos > limits[1])
     for video_path in video_paths:
-        video = cv2.VideoCapture(video_path)
+        video = cv2.VideoCapture(os.path.join(VIDEO_FOLDER, video_path))
         tracker = sort.Sort() #Using default tracker settings
         # Dictionary to store symbols for each person
         human_tracked_symbols = dict()
         human_tracked_image = dict() # An image of the person being tracked
-        count = 0
         while True:
             ret, frame = video.read()
-            print(count)
-            count += 1
             if ret:
                 RCNN_results = model.detect([frame])
                 r = RCNN_results[0]
@@ -155,7 +151,6 @@ def main():
                     key = human[4]
                     mp_pose_results = pose.process(frame[y1:y2, x1:x2])
                     if (mp_pose_results.pose_landmarks == None):
-                        print("I'm None")
                         if key not in human_tracked_symbols.keys():
                             # Storing left and right symbols
                             human_tracked_symbols[key] = (["H"],
@@ -172,7 +167,6 @@ def main():
                                                     mp_pose_results)
                     right_hand = get_landmark_values(hand_landmarks_right,
                                                      mp_pose_results)
-                    print(key, left_hand, right_hand)
                     mouth = get_landmark_values(mouth_landmarks,
                                                 mp_pose_results)
                     eyes = get_landmark_values(eye_landmarks,
@@ -228,9 +222,16 @@ def main():
                         human_tracked_image[key] = frame[y1:y2, x1:x2]
             else:
                 break
-    for key in human_tracked_image.keys():
-        cv2.imwrite("{}.jpg".format(key), human_tracked_image[key])
-    print(human_tracked_symbols)
+        if not os.path.exists(OUTPUT_FOLDER):
+            os.mkdir(OUTPUT_FOLDER)
+
+        if not os.path.exists(os.path.join(OUTPUT_FOLDER, video_path)):
+            os.mkdir(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0]))
+        for key in human_tracked_image.keys():
+            symbol_file = open(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0], f"{video_path.split('.')[0]}.{int(key)}.txt"), 'w')
+            cv2.imwrite(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0], f"{video_path.split('.')[0]}.{int(key)}.jpg"), human_tracked_image[key])
+            symbol_file.write(f"left:{','.join(human_tracked_symbols[key][0])}\nright:{','.join(human_tracked_symbols[key][1])}\n")
+            symbol_file.close()
 
 
 if __name__ == "__main__":
