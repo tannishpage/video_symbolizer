@@ -1,9 +1,10 @@
 import sys
 if len(sys.argv) != 3:
-    print("Usage: python3 video_symbolizer <path to video files> <output folder path>")
+    print("Usage: python3 video_symbolizer \
+<path to video files> <output folder path>")
     exit()
-ROOT_DIR = "/home/tannishpage/Nextcloud/University 2021/Summer research/All Code/Mask_RCNN-tensorflow2.0"
-SORT_DIR = "/home/tannishpage/Documents/Sign_Language_Detection/sort"
+ROOT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\Mask_RCNN-tensorflow2.0"
+SORT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\sort"
 sys.path.append(ROOT_DIR) # Adding MRCNN root dir to path to import models
 sys.path.append(SORT_DIR) # Adding sort to path to import it
 
@@ -51,6 +52,22 @@ def get_average(landmarks):
         avg_y += landmark.y
     return avg_x/len(landmarks), avg_y/len(landmarks)
 
+def get_landmark_values(landmark_enums, results):
+    """
+    Returns x, y coordinates of the landmark values corresponding to the
+    landmark_enums
+
+    Parameters
+        - landmark_enums (list): A list of enums for the landmarks
+        - results : the return value from mediapipe's mp_pose.Pose.process()
+    Returns
+        The x, y coordinates of the average position of the landmarks passed
+    """
+    values = []
+    for enum in landmark_enums:
+        values.append(results.pose_landmarks.landmark[enum])
+    return get_average(values)
+
 # Initializing some global variables
 VIDEO_FOLDER = sys.argv[1]
 OUTPUT_FOLDER = sys.argv[2]
@@ -66,9 +83,7 @@ def main():
     # Read videos
     video_paths = [os.path.join(VIDEO_FOLDER, file)
                     for file in os.listdir(VIDEO_FOLDER)
-                    if os.path.isfile(os.path.join(VIDEO_FOLDER, file))]
-
-    output_files = dict()
+                    if file.endswith(".mp4")]#os.path.isfile(os.path.join(VIDEO_FOLDER, file))]
 
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
@@ -96,18 +111,27 @@ def main():
 
     conf = InferenceConfig()
     # Create model object in inference mode.
-    model = modellib.MaskRCNN(mode="inference", model_dir=MODEL_DIR, config=conf)
+    model = modellib.MaskRCNN(mode="inference",
+                              model_dir=MODEL_DIR,
+                              config=conf)
     # Load weights trained on MS-COCO
     model.load_weights(COCO_MODEL_PATH, by_name=True)
+    pose = mp_pose.Pose(min_detection_confidence=0.5,
+                        min_tracking_confidence=0.5)
 
+    symbols = {"A":(), "B":(), "C":(), "D":(), "E":(), "F":(), "G":()}
+    check = lambda limits, pos: (pos < limits[0]) and (pos > limits[1])
     for video_path in video_paths:
         video = cv2.VideoCapture(video_path)
         tracker = sort.Sort() #Using default tracker settings
+        # Dictionary to store symbols for each person
+        human_tracked_symbols = dict()
+        human_tracked_image = dict() # An image of the person being tracked
         while True:
             ret, frame = video.read()
             if ret:
-                results = model.detect([frame])
-                r = results[0]
+                RCNN_results = model.detect([frame])
+                r = RCNN_results[0]
                 indices = np.where(r['class_ids'] == 1) # Getting humans only
                 all_humans_bbox = []
                 for i, index in enumerate(indices[0]):
@@ -120,12 +144,68 @@ def main():
                     y1 = int(human[1])
                     x2 = int(human[2])
                     y2 = int(human[3])
-                    # TODO:
-                    # Use mediapipe to get output on person
-                    # Then use the rules to get symbol
-                    # Store symbol in dict
-                    # If the person is no longer being tracked then add a null
-                    # to that untracked person
+                    key = human[4]
+                    mp_pose_results = pose.process(frame[y1:y2, x1:x2])
+                    left_hand = get_landmark_values(hand_landmarks_left,
+                                                    mp_pose_results)
+                    right_hand = get_landmark_values(hand_landmarks_right,
+                                                     mp_pose_results)
+                    mouth = get_landmark_values(mouth_landmarks,
+                                                mp_pose_results)
+                    eyes = get_landmark_values(eye_landmarks,
+                                               mp_pose_results)
+                    shoulder = get_landmark_values(shoulder_landmarks,
+                                                   mp_pose_results)
+                    hip = get_landmark_values(hip_landmarks,
+                                              mp_pose_results)
+                    shoulder_hip_distance = (hip_pose[0] - shoulder_pos[0],
+                                             hip_pose[1] - shoulder_pos[1])
+
+                    third_shoulder_hip = (shoulder_pos[0] +\
+                                            shoulder_hip_distance[0]/3,
+                                          shoulder_pos[1] +\
+                                            shoulder_hip_distance[1]/3)
+
+                    two_third_shoulder_hip = (shoulder_pos[0] +\
+                                                2*shoulder_hip_distance[0]/3,
+                                              shoulder_pos[1] +\
+                                                2*shoulder_hip_distance[1]/3)
+                    symbols["A"] = (eyes_pos[1], 0)
+                    symbols["B"] = (mouth_pos[1], eyes_pos[1])
+                    symbols["C"] = (shoulder_pos[1], mouth_pos[1])
+                    symbols["D"] = (third_shoulder_hip[1], shoulder_pos[1])
+                    symbols["E"] = (two_third_shoulder_hip[1], third_shoulder_hip[1])
+                    symbols["F"] = (hip_pose[1], third_shoulder_hip[1])
+                    symbols["G"] = (height, hip_pose[1])
+                    #Check which region hands are in
+                    left_flag = False
+                    right_flag = False
+                    left_symbol = ""
+                    right_symbol = ""
+                    for symbol in symbols.keys():
+                        if check(symbols[symbol], left_hand_pos[1]) and not left_flag:
+                            left_symbol = symbol
+                            left_flag = True
+
+                        if check(symbols[symbol], right_hand_pos[1]) and not right_flag:
+                            right_symbol = symbol
+                            right_flag = True
+
+                        if left_flag and right_flag:
+                            break
+                    if key not in human_tracked_symbols.keys():
+                        # Storing left and right symbols
+                        human_tracked_symbols[key] = ([left_symbol],
+                                                      [right_symbol])
+                    else:
+                        human_tracked_symbols[key][0].append(left_symbol)
+                        human_tracked_symbols[key][1].append(right_symbol)
+
+                    if key not in human_tracked_image.keys():
+                        human_tracked_image[key] = frame[y1:y2, x1:x2]
+            else:
+                break
+
 
 if __name__ == "__main__":
     main()
