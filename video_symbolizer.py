@@ -3,8 +3,8 @@ if len(sys.argv) < 3:
     print("Usage: python3 video_symbolizer \
 <path to video files> <output folder path> [--vis --output]")
     exit()
-ROOT_DIR = ""
-SORT_DIR = ""
+ROOT_DIR = "/home/tannishpage/Nextcloud/University 2021/Summer research/All Code/Mask_RCNN-tensorflow2.0"
+SORT_DIR = "/home/tannishpage/Documents/Sign_Language_Detection/sort"
 sys.path.append(ROOT_DIR) # Adding MRCNN root dir to path to import models
 sys.path.append(SORT_DIR) # Adding sort to path to import it
 
@@ -84,7 +84,7 @@ if not os.path.exists(COCO_MODEL_PATH):
 def main():
     # Read videos
     video_paths = [file for file in os.listdir(VIDEO_FOLDER)
-                    if file.endswith(".mp4")]#os.path.isfile(os.path.join(VIDEO_FOLDER, file))]
+                    if file.endswith(".mp4") or file.endswith(".mkv")]#os.path.isfile(os.path.join(VIDEO_FOLDER, file))]
 
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
@@ -148,7 +148,8 @@ def main():
             if ret:
                 RCNN_results = model.detect([frame])
                 r = RCNN_results[0]
-                indices = np.where(r['class_ids'] == 1) # Getting humans only
+                indices = np.where(r['scores'] >= 0.90)
+                indices = np.where(r['class_ids'][indices[0]] == 1) # Getting human class only
                 all_humans_bbox = []
                 for i, index in enumerate(indices[0]):
                     y1, x1, y2, x2 = r['rois'][index]
@@ -160,7 +161,10 @@ def main():
                     cv2.imshow("Window", frame)
                     if cv2.waitKey(25) & 0xFF == ord('q'):
                         break
-                output = tracker.update(np.array(all_humans_bbox))
+                if all_humans_bbox == []:
+                    output = tracker.update()
+                else:
+                    output = tracker.update(np.array(all_humans_bbox))
                 for human in output:
                     height = y2-y1
                     x1 = int(human[0])
@@ -168,6 +172,18 @@ def main():
                     x2 = int(human[2])
                     y2 = int(human[3])
                     key = human[4]
+                    if (x1 < 0 or y1 < 0 or x2 < 0 or y2 < 0):
+                        if key not in human_tracked_symbols.keys():
+                            # Storing left and right symbols
+                            human_tracked_symbols[key] = (["H"],
+                                                          ["H"])
+                        else:
+                            human_tracked_symbols[key][0].append("H")
+                            human_tracked_symbols[key][1].append("H")
+
+                        if key not in human_tracked_image.keys():
+                            human_tracked_image[key] = frame[y1:y2, x1:x2]
+                        continue
                     mp_pose_results = pose.process(frame[y1:y2, x1:x2])
                     if (mp_pose_results.pose_landmarks == None):
                         if key not in human_tracked_symbols.keys():
