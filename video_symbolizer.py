@@ -9,8 +9,8 @@ if len(sys.argv) < 3:
     print("Usage: python3 video_symbolizer \
 <path to video files> <output folder path> [--vis --output]")
     exit()
-ROOT_DIR = ""
-SORT_DIR = ""
+ROOT_DIR = "/home/tannishpage/Nextcloud/University 2021/Summer research/All Code/Mask_RCNN-tensorflow2.0"
+SORT_DIR = "/home/tannishpage/Documents/Sign_Language_Detection/sort"
 sys.path.append(ROOT_DIR) # Adding MRCNN root dir to path to import models
 sys.path.append(SORT_DIR) # Adding sort to path to import it
 
