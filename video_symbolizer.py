@@ -9,8 +9,8 @@ if len(sys.argv) < 3:
     print("Usage: python3 video_symbolizer \
 <path to video files> <output folder path> [--vis --output]")
     exit()
-ROOT_DIR = "/home/tannishpage/Nextcloud/University 2021/Summer research/All Code/Mask_RCNN-tensorflow2.0"
-SORT_DIR = "/home/tannishpage/Documents/Sign_Language_Detection/sort"
+ROOT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\Mask_RCNN-tensorflow2.0"
+SORT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\sort"
 sys.path.append(ROOT_DIR) # Adding MRCNN root dir to path to import models
 sys.path.append(SORT_DIR) # Adding sort to path to import it
 
@@ -90,7 +90,8 @@ if not os.path.exists(COCO_MODEL_PATH):
 def main():
     # Read videos
     video_paths = [file for file in os.listdir(VIDEO_FOLDER)
-                    if file.endswith(".mp4") or file.endswith(".mkv")]#os.path.isfile(os.path.join(VIDEO_FOLDER, file))]
+                    if file.endswith(".mp4") or file.endswith(".mkv")]
+    num_vids = len(video_paths)
 
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
@@ -128,15 +129,23 @@ def main():
 
     symbols = {"A":(), "B":(), "C":(), "D":(), "E":(), "F":(), "G":()}
     if VIS:
-        colors = {"A":(225, 0, 0), "B":(0, 225, 0), "C":(0, 0, 225), "D":(225, 225, 0), "E":(0, 225, 225), "F":(225, 0, 225), "G":(225, 225, 225)}
+        colors = {"A":(225, 0, 0),
+                  "B":(0, 225, 0),
+                  "C":(0, 0, 225),
+                  "D":(225, 225, 0),
+                  "E":(0, 225, 225),
+                  "F":(225, 0, 225),
+                  "G":(225, 225, 225)}
+
     check = lambda limits, pos: (pos < limits[0]) and (pos > limits[1])
     if OUTPUT:
         print("Starting Symbolization Process")
-    for video_path in video_paths:
+    for i, video_path in enumerate(video_paths):
         if OUTPUT:
-            print(f"\nLoading in Video {video_path}")
+            print(f"\nLoading in Video {video_path} ({i} of {num_vids})")
         video = cv2.VideoCapture(os.path.join(VIDEO_FOLDER, video_path))
-        tracker = sort.Sort() #Using default tracker settings
+        tracker = sort.Sort() # Using default tracker settings
+        sort.KalmanBoxTracker.count = 0
         # Dictionary to store symbols for each person
         human_tracked_symbols = dict()
         human_tracked_image = dict() # An image of the person being tracked
@@ -144,13 +153,15 @@ def main():
             frame_count = 0
             total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
             percentage = frame_count / total_frames * 100
-            sys.stdout.write("\r[{}{}] {:.2f}% {}/{}".format('='*int(percentage/2),
+            sys.stdout.write("\r[{}{}] {:.2f}% {}/{}".format(
+                                                '='*int(percentage/2),
                                                 '.' *(50 - int(percentage/2)),
                                                 percentage, frame_count,
                                                 total_frames))
             sys.stdout.flush()
-        while frame_count < 300:
+        while True:
             ret, frame = video.read()
+
             if OUTPUT:
                 frame_count += 1
                 percentage = frame_count / total_frames * 100
@@ -158,32 +169,28 @@ def main():
                 frame_height, frame_width, _ = frame.shape
                 RCNN_results = model.detect([frame])
                 r = RCNN_results[0]
+                # Getting humans only
                 indices = np.where(r['scores'] >= 0.90)
-                indices = np.where(r['class_ids'][indices[0]] == 1) # Getting human class only
+                indices = np.where(r['class_ids'][indices[0]] == 1)
                 all_humans_bbox = []
                 for i, index in enumerate(indices[0]):
                     y1, x1, y2, x2 = r['rois'][index]
                     bbox = (x1, y1, x2, y2, r['scores'][index])
                     all_humans_bbox.append(bbox)
-                    if VIS:
-                        pass#cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 255, 0), 2)
-                if VIS:
-                    pass#cv2.imshow("Window", frame)
 
                 if all_humans_bbox == []:
                     output = tracker.update()
                 else:
                     output = tracker.update(np.array(all_humans_bbox))
                 for human in output:
-                    height = y2-y1
-                    width = x2-x1
+                    pose = mp_pose.Pose(min_detection_confidence=0.5,
+                                        min_tracking_confidence=0.5)
                     x1 = int(human[0])
                     y1 = int(human[1])
                     x2 = int(human[2])
                     y2 = int(human[3])
                     key = human[4]
-                    if key != 1:
-                        continue
+
                     if (x1 < 0 or y1 < 0 or x2 < 0 or y2 < 0):
                         if key not in human_tracked_symbols.keys():
                             # Storing left and right symbols
@@ -196,7 +203,7 @@ def main():
                         if key not in human_tracked_image.keys():
                             human_tracked_image[key] = frame[y1:y2, x1:x2]
                         continue
-                    person_frame = frame[y1:y2, x1:x2]
+                    person_frame = frame[y1:y2, x1:x2].copy()
                     height, width, _ = person_frame.shape
                     mp_pose_results = pose.process(person_frame)
                     if (mp_pose_results.pose_landmarks == None):
@@ -240,7 +247,8 @@ def main():
                     symbols["B"] = (mouth[1], eyes[1])
                     symbols["C"] = (shoulder[1], mouth[1])
                     symbols["D"] = (third_shoulder_hip[1], shoulder[1])
-                    symbols["E"] = (two_third_shoulder_hip[1], third_shoulder_hip[1])
+                    symbols["E"] = (two_third_shoulder_hip[1],
+                                    third_shoulder_hip[1])
                     symbols["F"] = (hip[1], third_shoulder_hip[1])
                     symbols["G"] = (height, hip[1])
                     #Check which region hands are in
@@ -249,17 +257,29 @@ def main():
                     left_symbol = ""
                     right_symbol = ""
                     for symbol in symbols.keys():
-                        if check(symbols[symbol], left_hand[1]) and not left_flag:
+                        if check(symbols[symbol],
+                                 left_hand[1]) and not left_flag:
                             left_symbol = symbol
                             left_flag = True
                             if VIS:
-                                person_frame = cv2.circle(person_frame,(int(left_hand[0]*width),int(left_hand[1]*height)) , 2, colors[symbol], 2)
+                                person_frame = cv2.circle(person_frame,
+                                                    (int(left_hand[0]*width),
+                                                      int(left_hand[1]*height)),
+                                                    2,
+                                                    colors[symbol],
+                                                    2)
 
-                        if check(symbols[symbol], right_hand[1]) and not right_flag:
+                        if check(symbols[symbol],
+                                 right_hand[1]) and not right_flag:
                             right_symbol = symbol
                             right_flag = True
                             if VIS:
-                                person_frame = cv2.circle(person_frame,(int(right_hand[0]*width),int(right_hand[1]*height)) , 2, colors[symbol], 2)
+                                person_frame = cv2.circle(person_frame,
+                                                    (int(right_hand[0]*width),
+                                                     int(right_hand[1]*height)),
+                                                    2,
+                                                    colors[symbol],
+                                                    2)
 
                         if left_flag and right_flag:
                             break
@@ -275,13 +295,48 @@ def main():
                         human_tracked_image[key] = frame[y1:y2, x1:x2]
 
                     if VIS:
-                        person_frame = cv2.line(person_frame, (0, int(third_shoulder_hip[1]*height)), (int(width), int(third_shoulder_hip[1]*height)) ,(0, 255, 0), thickness=2)
-                        person_frame = cv2.line(person_frame, (0, int(two_third_shoulder_hip[1]*height)), (int(width), int(two_third_shoulder_hip[1]*height)) ,(0, 255, 0), thickness=2)
-                        person_frame = cv2.line(person_frame, (0, int(shoulder[1]*height)), (int(width), int(shoulder[1]*height)) , (0, 255, 0), thickness=2)
-                        person_frame = cv2.line(person_frame, (0, int(hip[1]*height)), (int(width), int(hip[1]*height)) , (0, 255, 0), thickness=2)
-                        person_frame = cv2.line(person_frame, (0, int(eyes[1]*height)), (int(width), int(eyes[1]*height)) ,(0, 255, 0), thickness=2)
-                        person_frame = cv2.line(person_frame, (0, int(mouth[1]*height)), (int(width), int(mouth[1]*height)) , (0, 255, 0), thickness=2)
-                    if VIS:
+                        person_frame = cv2.line(person_frame,
+                                        (0,
+                                         int(third_shoulder_hip[1]*height)),
+                                        (int(width),
+                                         int(third_shoulder_hip[1]*height)),
+                                        (0, 255, 0),
+                                        thickness=2)
+                        person_frame = cv2.line(person_frame,
+                                        (0,
+                                         int(two_third_shoulder_hip[1]*height)),
+                                        (int(width),
+                                         int(two_third_shoulder_hip[1]*height)),
+                                        (0, 255, 0),
+                                        thickness=2)
+                        person_frame = cv2.line(person_frame,
+                                        (0,
+                                         int(shoulder[1]*height)),
+                                        (int(width),
+                                         int(shoulder[1]*height)),
+                                        (0, 255, 0),
+                                        thickness=2)
+                        person_frame = cv2.line(person_frame,
+                                        (0,
+                                         int(hip[1]*height)),
+                                        (int(width),
+                                         int(hip[1]*height)),
+                                        (0, 255, 0),
+                                        thickness=2)
+                        person_frame = cv2.line(person_frame,
+                                        (0,
+                                         int(eyes[1]*height)),
+                                        (int(width),
+                                         int(eyes[1]*height)),
+                                        (0, 255, 0),
+                                        thickness=2)
+                        person_frame = cv2.line(person_frame,
+                                        (0,
+                                         int(mouth[1]*height)),
+                                        (int(width),
+                                         int(mouth[1]*height)),
+                                        (0, 255, 0),
+                                        thickness=2)
                         cv2.imshow(str(key), person_frame)
                         if cv2.waitKey(25) & 0xFF == ord('q'):
                             break
