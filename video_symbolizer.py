@@ -9,8 +9,8 @@ if len(sys.argv) < 3:
     print("Usage: python3 video_symbolizer \
 <path to video files> <output folder path> [--vis --output]")
     exit()
-ROOT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\Mask_RCNN-tensorflow2.0"
-SORT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\sort"
+ROOT_DIR = "/home/tannishpage/Nextcloud/University 2021/Summer research/All Code/Mask_RCNN-tensorflow2.0"
+SORT_DIR = "/home/tannishpage/Documents/Sign_Language_Detection/sort"
 sys.path.append(ROOT_DIR) # Adding MRCNN root dir to path to import models
 sys.path.append(SORT_DIR) # Adding sort to path to import it
 
@@ -151,7 +151,7 @@ def main():
         human_tracked_image = dict() # An image of the person being tracked
         if OUTPUT:
             frame_count = 0
-            total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            total_frames = 2000 #int(video.get(cv2.CAP_PROP_FRAME_COUNT))
             percentage = frame_count / total_frames * 100
             sys.stdout.write("\r[{}{}] {:.2f}% {}/{}".format(
                                                 '='*int(percentage/2),
@@ -159,7 +159,17 @@ def main():
                                                 percentage, frame_count,
                                                 total_frames))
             sys.stdout.flush()
-        while True:
+
+        if not os.path.exists(OUTPUT_FOLDER):
+            os.mkdir(OUTPUT_FOLDER)
+
+        if not os.path.exists(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0])):
+            os.mkdir(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0]))
+        else:
+            print(f"\nSkipping video {video_path}")
+            continue
+
+        while frame_count < 2000:
             ret, frame = video.read()
 
             if OUTPUT:
@@ -180,10 +190,11 @@ def main():
 
                 if all_humans_bbox == []:
                     output = tracker.update()
+                    # Maybe you should add a symbol to all current tracked humans
                 else:
                     output = tracker.update(np.array(all_humans_bbox))
                 for human in output:
-                    pose = mp_pose.Pose(min_detection_confidence=0.5,
+                    pose.__init__(min_detection_confidence=0.5,
                                         min_tracking_confidence=0.5)
                     x1 = int(human[0])
                     y1 = int(human[1])
@@ -348,16 +359,13 @@ def main():
                     sys.stdout.flush()
             else:
                 break
-        if not os.path.exists(OUTPUT_FOLDER):
-            os.mkdir(OUTPUT_FOLDER)
 
-        if not os.path.exists(os.path.join(OUTPUT_FOLDER, video_path)):
-            os.mkdir(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0]))
         for key in human_tracked_image.keys():
             symbol_file = open(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0], f"{video_path.split('.')[0]}.{int(key)}.txt"), 'w')
-            cv2.imwrite(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0], f"{video_path.split('.')[0]}.{int(key)}.jpg"), human_tracked_image[key])
             symbol_file.write(f"left:{','.join(human_tracked_symbols[key][0])}\nright:{','.join(human_tracked_symbols[key][1])}\n")
             symbol_file.close()
+            if human_tracked_image[key].size != 0:
+                cv2.imwrite(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0], f"{video_path.split('.')[0]}.{int(key)}.jpg"), human_tracked_image[key])
 
 
 if __name__ == "__main__":
