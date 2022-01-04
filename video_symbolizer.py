@@ -5,12 +5,12 @@
 """
 
 import sys
-if len(sys.argv) < 3:
+if len(sys.argv) < 4:
     print("Usage: python3 video_symbolizer \
-<path to video files> <output folder path> [--vis --output]")
+<path to video files> <output folder path> <groundtruth file> [--vis --output]")
     exit()
-ROOT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\Mask_RCNN-tensorflow2.0"
-SORT_DIR = "C:\\Users\\s4582742\\Downloads\\RCNN\\model\\sort"
+ROOT_DIR = "/home/tannishpage/Nextcloud/University 2021/Summer research/All Code/Mask_RCNN-tensorflow2.0"
+SORT_DIR = "/home/tannishpage/Documents/Sign_Language_Detection/sort"
 sys.path.append(ROOT_DIR) # Adding MRCNN root dir to path to import models
 sys.path.append(SORT_DIR) # Adding sort to path to import it
 
@@ -32,6 +32,7 @@ from mrcnn import config # Importing RCNN
 from mrcnn import utils
 import mrcnn.model as modellib
 import sort # Importing SORT
+import datetime
 
 class InferenceConfig(config.Config):
     # Set batch size to 1 since we'll be running inference on
@@ -74,6 +75,26 @@ def get_landmark_values(landmark_enums, results):
         values.append(results.pose_landmarks.landmark[enum])
     return get_average(values)
 
+def get_groundtruth_data(groundtruth_file):
+    gt = {}
+    have_groundtruth_data = False
+    if len(groundtruth_file) > 0:
+        try:
+            # open and load the groundtruth data
+            print('Loading groundtruth data...')
+            with open(groundtruth_file, 'r') as gt_file:
+                gt_lines = gt_file.readlines()
+            for gtl in gt_lines:
+                gtf = gtl.rstrip().split(' ')
+                #gt file has 3 items per line (vid_ID, frame ID, label)
+                if len(gtf) == 3:
+                    gt[(gtf[0], int(gtf[1]))] = gtf[2]
+            print('ok\n')
+            have_groundtruth_data = True
+        except:
+            pass
+    return gt
+
 # Initializing some global variables
 VIDEO_FOLDER = sys.argv[1]
 OUTPUT_FOLDER = sys.argv[2]
@@ -92,6 +113,8 @@ def main():
     video_paths = [file for file in os.listdir(VIDEO_FOLDER)
                     if file.endswith(".mp4") or file.endswith(".mkv")]
     num_vids = len(video_paths)
+
+    groundtruth = get_groundtruth_data(sys.argv[3])
 
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
@@ -143,15 +166,16 @@ def main():
     for i, video_path in enumerate(video_paths):
         if OUTPUT:
             print(f"\nLoading in Video {video_path} ({i} of {num_vids})")
+        video_name = video_path.replace(".mp4", "") if video_path.endswith(".mp4") else video_path.replace(".mkv", "")
         video = cv2.VideoCapture(os.path.join(VIDEO_FOLDER, video_path))
         tracker = sort.Sort() # Using default tracker settings
         sort.KalmanBoxTracker.count = 0
         # Dictionary to store symbols for each person
         human_tracked_symbols = dict()
         human_tracked_image = dict() # An image of the person being tracked
+        frame_count = 0
         if OUTPUT:
-            frame_count = 0
-            total_frames = 300 #int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
             percentage = frame_count / total_frames * 100
             sys.stdout.write("\r[{}{}] {:.2f}% {}/{}".format(
                                                 '='*int(percentage/2),
@@ -169,11 +193,10 @@ def main():
             print(f"\nSkipping video {video_path}")
             continue
 
-        while frame_count < total_frames:
+        while frame_count < 20:
             ret, frame = video.read()
-
+            frame_count += 1
             if OUTPUT:
-                frame_count += 1
                 percentage = frame_count / total_frames * 100
             if ret:
                 frame_height, frame_width, _ = frame.shape
@@ -207,28 +230,36 @@ def main():
                             # Storing left and right symbols
                             human_tracked_symbols[key] = (["H"],
                                                           ["H"],
-                                                          [str(frame_count)])
+                                                          [str(frame_count)],
+                                                          [groundtruth[video_name, frame_count]])
                         else:
                             human_tracked_symbols[key][0].append("H")
                             human_tracked_symbols[key][1].append("H")
                             human_tracked_symbols[key][2].append(str(frame_count))
+                            human_tracked_symbols[key][3].append(groundtruth[video_name, frame_count])
 
                         if key not in human_tracked_image.keys():
                             human_tracked_image[key] = frame[y1:y2, x1:x2]
                         continue
                     person_frame = frame[y1:y2, x1:x2].copy()
                     height, width, _ = person_frame.shape
-                    mp_pose_results = pose.process(person_frame)
+                    try:
+                        mp_pose_results = pose.process(person_frame)
+                    except Exception as e:
+                        print(datetime.datetime.now(), e, video_path, frame_count, person_frame, person_frame.shape)
+                        continue
                     if (mp_pose_results.pose_landmarks == None):
                         if key not in human_tracked_symbols.keys():
                             # Storing left and right symbols
                             human_tracked_symbols[key] = (["H"],
                                                           ["H"],
-                                                          [str(frame_count)])
+                                                          [str(frame_count)],
+                                                          [groundtruth[video_name, frame_count]])
                         else:
                             human_tracked_symbols[key][0].append("H")
                             human_tracked_symbols[key][1].append("H")
                             human_tracked_symbols[key][2].append(str(frame_count))
+                            human_tracked_symbols[key][3].append(groundtruth[video_name, frame_count])
 
                         if key not in human_tracked_image.keys():
                             human_tracked_image[key] = frame[y1:y2, x1:x2]
@@ -302,11 +333,13 @@ def main():
                         # Storing left and right symbols
                         human_tracked_symbols[key] = ([left_symbol],
                                                       [right_symbol],
-                                                      [str(frame_count)])
+                                                      [str(frame_count)],
+                                                      [groundtruth[video_name, frame_count]])
                     else:
                         human_tracked_symbols[key][0].append(left_symbol)
                         human_tracked_symbols[key][1].append(right_symbol)
                         human_tracked_symbols[key][2].append(str(frame_count))
+                        human_tracked_symbols[key][3].append(groundtruth[video_name, frame_count])
 
                     if key not in human_tracked_image.keys():
                         human_tracked_image[key] = frame[y1:y2, x1:x2]
@@ -368,7 +401,7 @@ def main():
 
         for key in human_tracked_image.keys():
             symbol_file = open(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0], f"{video_path.split('.')[0]}.{int(key)}.txt"), 'w')
-            symbol_file.write(f"frame:{','.join(human_tracked_symbols[key][2])}\nleft:{','.join(human_tracked_symbols[key][0])}\nright:{','.join(human_tracked_symbols[key][1])}\n")
+            symbol_file.write(f"frame:{','.join(human_tracked_symbols[key][2])}\nleft:{','.join(human_tracked_symbols[key][0])}\nright:{','.join(human_tracked_symbols[key][1])}\nlabel:{','.join(human_tracked_symbols[key][3])}")
             symbol_file.close()
             if human_tracked_image[key].size != 0:
                 cv2.imwrite(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0], f"{video_path.split('.')[0]}.{int(key)}.jpg"), human_tracked_image[key])
