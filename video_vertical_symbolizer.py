@@ -193,7 +193,7 @@ def main():
             print(f"\nSkipping video {video_path}")
             continue
 
-        while frame_count < 20:
+        while frame_count < 500:
             ret, frame = video.read()
             frame_count += 1
             if OUTPUT:
@@ -405,5 +405,6 @@ def main():
             symbol_file.close()
             if human_tracked_image[key].size != 0:
                 cv2.imwrite(os.path.join(OUTPUT_FOLDER, video_path.split('.')[0], f"{video_path.split('.')[0]}.{int(key)}.jpg"), human_tracked_image[key])
+
 if __name__ == "__main__":
     main()
