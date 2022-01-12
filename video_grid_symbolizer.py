@@ -15,6 +15,7 @@ import numpy as np
 import cv2
 import mediapipe as mp
 import datetime
+import pytictoc
 
 def get_average(landmarks):
     """
@@ -84,6 +85,7 @@ check = lambda limits, pos: (pos < limits[0]) and (pos > limits[1])
 on_left = lambda center, pos: pos < center
 
 def main():
+    time = pytictoc.TicToc()
     # Read videos
     video_paths = [file for file in os.listdir(VIDEO_FOLDER)
                     if file.endswith("_Filtered.mp4")]
@@ -146,6 +148,7 @@ def main():
                                                 percentage, frame_count,
                                                 total_frames))
             sys.stdout.flush()
+            time.tic()
 
         if not os.path.exists(OUTPUT_FOLDER):
             os.mkdir(OUTPUT_FOLDER)
@@ -257,9 +260,13 @@ def main():
                                                     total_frames))
                 sys.stdout.flush()
 
-
+        if OUTPUT:
+            time.toc()
+            print(f"Saving symbolized data to {video_path.split('.')[0]}.txt...")
         symbol_file = open(os.path.join(OUTPUT_FOLDER, f"{video_path.split('.')[0]}.txt"), 'w')
         symbol_file.write(f"frame:{','.join(human_tracked_symbols[2])}\nleft:{','.join(human_tracked_symbols[0])}\nright:{','.join(human_tracked_symbols[1])}\nlabel:{','.join(human_tracked_symbols[3])}")
         symbol_file.close()
+        if OUTPUT:
+            print("Done")
 if __name__ == "__main__":
     main()
