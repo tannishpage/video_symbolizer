@@ -157,107 +157,106 @@ def main():
                 percentage = frame_count / total_frames * 100
             if ret:
                 height, width, _ = frame.shape
-                try:
-                    mp_pose_results = pose.process(frame)
-                    if (mp_pose_results.pose_landmarks == None):
-                        human_tracked_symbols[0].append("H")
-                        human_tracked_symbols[1].append("H")
-                        human_tracked_symbols[2].append(str(frame_count))
-                        human_tracked_symbols[3].append(groundtruth[video_name, frame_count])
-
-                    left_hand = get_landmark_values(hand_landmarks_left,
-                                                    mp_pose_results)
-                    right_hand = get_landmark_values(hand_landmarks_right,
-                                                     mp_pose_results)
-                    shoulder = get_landmark_values(shoulder_landmarks,
-                                                   mp_pose_results)
-                    hip = get_landmark_values(hip_landmarks,
-                                              mp_pose_results)
-                    shoulder_hip_distance = (hip[0] - shoulder[0],
-                                             hip[1] - shoulder[1])
-
-                    half_shoulder_hip = (shoulder[0] +\
-                                            shoulder_hip_distance[0]/2,
-                                         shoulder[1] +\
-                                            shoulder_hip_distance[1]/2)
-
-                    # Setting boundries for both the left and right side
-                    symbols_left["A"] = symbols_right["B"] = (shoulder[1], 0)
-                    symbols_left["C"] = symbols_right["D"] = (half_shoulder_hip[1], shoulder[1])
-                    symbols_left["E"] = symbols_right["F"] = (hip[1], half_shoulder_hip[1])
-                    symbols_left["G"] = symbols_right["G"] = (height, hip[1])
-
-                    # TODO: Find which side each hand is in, and assign the
-                    #       relevant symbol
-
-                    if on_left(left_hand[0], shoulder[0]):
-                        left_symbol = get_symbol(symbols_left, left_hand)
-                    else:
-                        left_symbol = get_symbol(symbols_right, right_hand)
-
-                    if on_left(right_hand[0], shoulder[0]):
-                        right_symbol = get_symbol(symbols_left, right_hand)
-                    else:
-                        right_symbol = get_symbol(symbols_right, right_hand)
-
-                    human_tracked_symbols[0].append(left_symbol)
-                    human_tracked_symbols[1].append(right_symbol)
+                mp_pose_results = pose.process(frame)
+                if (mp_pose_results.pose_landmarks == None):
+                    human_tracked_symbols[0].append("H")
+                    human_tracked_symbols[1].append("H")
                     human_tracked_symbols[2].append(str(frame_count))
                     human_tracked_symbols[3].append(groundtruth[video_name, frame_count])
+                    continue
 
-                    if VIS:
-                        frame = cv2.line(frame,
-                                        (0,
-                                         int(half_shoulder_hip[1]*height)),
-                                        (int(width),
-                                         int(half_shoulder_hip[1]*height)),
-                                        (0, 255, 0),
-                                        thickness=2)
-                        frame = cv2.line(frame,
-                                        (0,
-                                         int(shoulder[1]*height)),
-                                        (int(width),
-                                         int(shoulder[1]*height)),
-                                        (0, 255, 0),
-                                        thickness=2)
-                        frame = cv2.line(frame,
-                                        (0,
-                                         int(hip[1]*height)),
-                                        (int(width),
-                                         int(hip[1]*height)),
-                                        (0, 255, 0),
-                                        thickness=2)
-                        frame = cv2.line(frame,
-                                        (int(shoulder[0]*width),
-                                         0),
-                                        (int(shoulder[0]*width),
-                                         int(hip[1]*height)),
-                                        (0, 255, 0),
-                                        thickness=2)
-                        frame = cv2.circle(frame,
-                                          (int(left_hand[0]*width),
-                                           int(left_hand[1]*height)),
-                                          2,
-                                          colors[left_symbol],
-                                          2)
+                left_hand = get_landmark_values(hand_landmarks_left,
+                                                mp_pose_results)
+                right_hand = get_landmark_values(hand_landmarks_right,
+                                                 mp_pose_results)
+                shoulder = get_landmark_values(shoulder_landmarks,
+                                               mp_pose_results)
+                hip = get_landmark_values(hip_landmarks,
+                                          mp_pose_results)
+                shoulder_hip_distance = (hip[0] - shoulder[0],
+                                         hip[1] - shoulder[1])
 
-                        frame = cv2.circle(frame,
-                                          (int(right_hand[0]*width),
-                                           int(right_hand[1]*height)),
-                                          2,
-                                          colors[right_symbol],
-                                          2)
-                        cv2.imshow("Frame", frame)
-                        if cv2.waitKey(25) & 0xFF == ord('q'):
-                            break
-                    if OUTPUT:
-                        sys.stdout.write("\r[{}{}] {:.2f}% {}/{}".format('='*int(percentage/2),
-                                                        '.' *(50 - int(percentage/2)),
-                                                        percentage, frame_count,
-                                                        total_frames))
-                    sys.stdout.flush()
-                except AttributeError as e:
-                    print(datetime.datetime.now(), e, video_path, frame_count, frame, frame.shape)
+                half_shoulder_hip = (shoulder[0] +\
+                                        shoulder_hip_distance[0]/2,
+                                     shoulder[1] +\
+                                        shoulder_hip_distance[1]/2)
+
+                # Setting boundries for both the left and right side
+                symbols_left["A"] = symbols_right["B"] = (shoulder[1], 0)
+                symbols_left["C"] = symbols_right["D"] = (half_shoulder_hip[1], shoulder[1])
+                symbols_left["E"] = symbols_right["F"] = (hip[1], half_shoulder_hip[1])
+                symbols_left["G"] = symbols_right["G"] = (height, hip[1])
+
+                # TODO: Find which side each hand is in, and assign the
+                #       relevant symbol
+
+                if on_left(left_hand[0], shoulder[0]):
+                    left_symbol = get_symbol(symbols_left, left_hand)
+                else:
+                    left_symbol = get_symbol(symbols_right, right_hand)
+
+                if on_left(right_hand[0], shoulder[0]):
+                    right_symbol = get_symbol(symbols_left, right_hand)
+                else:
+                    right_symbol = get_symbol(symbols_right, right_hand)
+
+                human_tracked_symbols[0].append(left_symbol)
+                human_tracked_symbols[1].append(right_symbol)
+                human_tracked_symbols[2].append(str(frame_count))
+                human_tracked_symbols[3].append(groundtruth[video_name, frame_count])
+
+                if VIS:
+                    frame = cv2.line(frame,
+                                    (0,
+                                     int(half_shoulder_hip[1]*height)),
+                                    (int(width),
+                                     int(half_shoulder_hip[1]*height)),
+                                    (0, 255, 0),
+                                    thickness=2)
+                    frame = cv2.line(frame,
+                                    (0,
+                                     int(shoulder[1]*height)),
+                                    (int(width),
+                                     int(shoulder[1]*height)),
+                                    (0, 255, 0),
+                                    thickness=2)
+                    frame = cv2.line(frame,
+                                    (0,
+                                     int(hip[1]*height)),
+                                    (int(width),
+                                     int(hip[1]*height)),
+                                    (0, 255, 0),
+                                    thickness=2)
+                    frame = cv2.line(frame,
+                                    (int(shoulder[0]*width),
+                                     0),
+                                    (int(shoulder[0]*width),
+                                     int(hip[1]*height)),
+                                    (0, 255, 0),
+                                    thickness=2)
+                    frame = cv2.circle(frame,
+                                      (int(left_hand[0]*width),
+                                       int(left_hand[1]*height)),
+                                      2,
+                                      colors[left_symbol],
+                                      2)
+
+                    frame = cv2.circle(frame,
+                                      (int(right_hand[0]*width),
+                                       int(right_hand[1]*height)),
+                                      2,
+                                      colors[right_symbol],
+                                      2)
+                    cv2.imshow("Frame", frame)
+                    if cv2.waitKey(25) & 0xFF == ord('q'):
+                        break
+                if OUTPUT:
+                    sys.stdout.write("\r[{}{}] {:.2f}% {}/{}".format('='*int(percentage/2),
+                                                    '.' *(50 - int(percentage/2)),
+                                                    percentage, frame_count,
+                                                    total_frames))
+                sys.stdout.flush()
+
 
         symbol_file = open(os.path.join(OUTPUT_FOLDER, f"{video_path.split('.')[0]}.txt"), 'w')
         symbol_file.write(f"frame:{','.join(human_tracked_symbols[2])}\nleft:{','.join(human_tracked_symbols[0])}\nright:{','.join(human_tracked_symbols[1])}\nlabel:{','.join(human_tracked_symbols[3])}")
