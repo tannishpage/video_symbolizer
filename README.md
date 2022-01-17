@@ -1,6 +1,6 @@
 # Introduction
 
-This repository is part of my Summer Research Project. The goal of the project is explore the possibility to detect Auslan using the Zipf-Mandelbrot-Li Fast Entropy Function. In order to use the function I would need to first symbolize the data. This repository contains code to symbolize the movement of a signer using Mediapipe's pose estimation.
+This repository is part of my Summer Research Project. The goal of the project is explore the possibility to detect Auslan using the Zipf-Mandelbrot-Li Fast Entropy Function which is a component of SLAIT AI (A method devised by Dr Andrew Back). In order to use the function I would need to first symbolize the data. This repository contains code to symbolize the movement of a signer using Mediapipe's pose estimation.
 
 # Method
 
@@ -16,16 +16,35 @@ Using the `video_grid_symbolizer.py` script is straightforward.
 
 ```
 python3 video_grid_symbolizer.py <path to video files> <output folder path> <groundtruth file> [--vis --output]
+
+Arguments:
+  <path to video files>       The path to a folder containing videos to symbolize, OR the path to a video file
+  <output folder path>        The output folder path, where all the symbolized data is stored
+  <groundtruth file>          The file containing all the labels for the video(s) at each frame
+
+Options:
+  `--vis`        display every frame with the regions drawn. The hands are represented as dots
+                 and their color represents the region its in.
+                 
+  `--output`     will output a progress bar to show progess for each video, and status changes.
 ```
 
-The `--vis` option will output every frame with the regions drawn. The hands are represented as dots and their color represents the region its in.
+### Example
+Using Folder
+```
+python3 video_grid_symbolizer.py ./video_files/ ./output_folder/ ./groundtruth.txt
+```
+Using File
+```
+python3 video_grid_symbolizer.py ./video_file.mp4 ./output_folder/ ./groundtruth.txt
+```
+
+NOTE: The script filters for .mp4 or .mkv files because those are the formats I used.
 
 # Dependencies
-Python Version `3.8.8`
-
-```
-pytictoc
-numpy
-opencv
-mediapipe
-```
+- Python 3.8.8
+- pytictoc
+- numpy
+- opencv
+- mediapipe
+To install python packages `python -m pip install pytictoc numpy opencv-python mediapipe`
