@@ -75,20 +75,25 @@ def get_symbol(symbols, hand):
         if check(symbols[symbol], hand[1]):
             return symbol
 
-# Initializing some global variables
-VIDEO_FOLDER = sys.argv[1]
-OUTPUT_FOLDER = sys.argv[2]
-VIS = "--vis" in sys.argv
-OUTPUT = "--output" in sys.argv
+
 # Lambda functions because they are simple checks
 check = lambda limits, pos: (pos < limits[0]) and (pos > limits[1])
 on_left = lambda center, pos: pos < center
-
 def main():
     time = pytictoc.TicToc()
+    VIDEO_FOLDER = sys.argv[1]
+    OUTPUT_FOLDER = sys.argv[2]
+    VIS = "--vis" in sys.argv
+    OUTPUT = "--output" in sys.argv
     # Read videos
-    video_paths = [file for file in os.listdir(VIDEO_FOLDER)
-                    if file.endswith("_Filtered.mp4")]
+    if os.path.isdir(VIDEO_FOLDER):
+        video_paths = [file for file in os.listdir(VIDEO_FOLDER)
+                    if file.endswith(".mp4") or file.endswith(".mkv")]
+    else:
+        # If not direcotry, then assume it's a single file.
+        # Allows user to pass single file to be symbolized
+        video_paths = [os.path.basename(VIDEO_FOLDER)]
+        VIDEO_FOLDER = os.path.dirname(VIDEO_FOLDER)
     num_vids = len(video_paths)
 
     groundtruth = get_groundtruth_data(sys.argv[3])
@@ -133,7 +138,7 @@ def main():
     for i, video_path in enumerate(video_paths):
         if OUTPUT:
             print(f"\nLoading in Video {video_path} ({i} of {num_vids})")
-        video_name = video_path.replace("_Filtered.mp4", "")
+        video_name = video_path.replace(".mp4", "") if video_path.endswith(".mp4") else video_path.replace(".mkv", "")
         video = cv2.VideoCapture(os.path.join(VIDEO_FOLDER, video_path))
         # List to store symbols and other information
         # Left Symbol, Right Symbol, Frame Count, Ground Truth Value
