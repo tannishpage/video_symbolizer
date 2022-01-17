@@ -9,9 +9,6 @@ import sys
 import random
 import math
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
 import cv2
 import mediapipe as mp
 import datetime
