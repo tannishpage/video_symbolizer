@@ -167,7 +167,7 @@ def main():
                     human_tracked_symbols[0].append("H")
                     human_tracked_symbols[1].append("H")
                     human_tracked_symbols[2].append(str(frame_count))
-                    human_tracked_symbols[3].append(groundtruth.get((video_name, frame_count), -1))
+                    human_tracked_symbols[3].append(groundtruth.get((video_name, frame_count), "-1"))
                     continue
 
                 left_hand = get_landmark_values(hand_landmarks_left,
@@ -208,7 +208,7 @@ def main():
                 human_tracked_symbols[0].append(left_symbol)
                 human_tracked_symbols[1].append(right_symbol)
                 human_tracked_symbols[2].append(str(frame_count))
-                human_tracked_symbols[3].append(groundtruth.get((video_name, frame_count), -1))
+                human_tracked_symbols[3].append(groundtruth.get((video_name, frame_count), "-1"))
 
                 if VIS:
                     frame = cv2.line(frame,
