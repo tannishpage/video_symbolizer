@@ -71,6 +71,7 @@ def get_symbol(symbols, hand):
     for symbol in symbols.keys():
         if check(symbols[symbol], hand[1]):
             return symbol
+    return "H"
 
 
 # Lambda functions because they are simple checks
@@ -205,6 +206,8 @@ def main():
                 else:
                     right_symbol = get_symbol(symbols_right, right_hand)
 
+
+
                 human_tracked_symbols[0].append(left_symbol)
                 human_tracked_symbols[1].append(right_symbol)
                 human_tracked_symbols[2].append(str(frame_count))
@@ -265,8 +268,12 @@ def main():
         if OUTPUT:
             time.toc()
             print(f"Saving symbolized data to {video_path.split('.')[0]}.txt...")
-        symbol_file = open(os.path.join(OUTPUT_FOLDER, f"{video_path.split('.')[0]}.txt"), 'w')
-        symbol_file.write(f"frame:{','.join(human_tracked_symbols[2])}\nleft:{','.join(human_tracked_symbols[0])}\nright:{','.join(human_tracked_symbols[1])}\nlabel:{','.join(human_tracked_symbols[3])}")
+        symbol_file = open(os.path.join(OUTPUT_FOLDER,
+                                        f"{video_path.split('.')[0]}.txt"), 'w')
+        symbol_file.write(f"frame:{','.join(human_tracked_symbols[2])}\n\
+        left:{','.join(human_tracked_symbols[0])}\n\
+        right:{','.join(human_tracked_symbols[1])}\n\
+        label:{','.join(human_tracked_symbols[3])}")
         symbol_file.close()
         if OUTPUT:
             print("Done")
