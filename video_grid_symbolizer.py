@@ -130,6 +130,7 @@ def main():
                   "E":(0, 225, 225),
                   "F":(225, 0, 225),
                   "G":(225, 225, 225)}
+        font = cv2.FONT_HERSHEY_SIMPLEX
 
     if OUTPUT:
         print("Starting Symbolization Process")
@@ -138,6 +139,8 @@ def main():
             print(f"\nLoading in Video {video_path} ({i} of {num_vids})")
         video_name = video_path.replace(".mp4", "") if video_path.endswith(".mp4") else video_path.replace(".mkv", "")
         video = cv2.VideoCapture(os.path.join(VIDEO_FOLDER, video_path))
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        out = cv2.VideoWriter('./outputvid2.avi',fourcc, 25.0, (1920,1080))
         # List to store symbols and other information
         # Left Symbol, Right Symbol, Frame Count, Ground Truth Value
         human_tracked_symbols = [[], [], [], []]
@@ -192,9 +195,6 @@ def main():
                 symbols_left["C"] = symbols_right["D"] = (half_shoulder_hip[1], shoulder[1])
                 symbols_left["E"] = symbols_right["F"] = (hip[1], half_shoulder_hip[1])
                 symbols_left["G"] = symbols_right["G"] = (height, hip[1])
-
-                # TODO: Find which side each hand is in, and assign the
-                #       relevant symbol
 
                 if on_left(left_hand[0], shoulder[0]):
                     left_symbol = get_symbol(symbols_left, left_hand)
@@ -255,7 +255,22 @@ def main():
                                       2,
                                       colors[right_symbol],
                                       2)
+                    cv2.putText(frame, 
+                                f'Right: {right_symbol}',
+                                (1000, 50),
+                                font, 1,
+                                (0, 255, 255),
+                                2, 
+                                cv2.LINE_4)
+                    cv2.putText(frame, 
+                                f'Left: {left_symbol}',
+                                (1000, 100),
+                                font, 1,
+                                (0, 255, 255),
+                                2, 
+                                cv2.LINE_4)
                     cv2.imshow("Frame", frame)
+                    out.write(frame)
                     if cv2.waitKey(25) & 0xFF == ord('q'):
                         break
                 if OUTPUT:
@@ -270,10 +285,7 @@ def main():
             print(f"Saving symbolized data to {video_path.split('.')[0]}.txt...")
         symbol_file = open(os.path.join(OUTPUT_FOLDER,
                                         f"{video_path.split('.')[0]}.txt"), 'w')
-        symbol_file.write(f"frame:{','.join(human_tracked_symbols[2])}\n\
-        left:{','.join(human_tracked_symbols[0])}\n\
-        right:{','.join(human_tracked_symbols[1])}\n\
-        label:{','.join(human_tracked_symbols[3])}")
+        symbol_file.write(f"frame:{','.join(human_tracked_symbols[2])}\nleft:{','.join(human_tracked_symbols[0])}\nright:{','.join(human_tracked_symbols[1])}\nlabel:{','.join(human_tracked_symbols[3])}")
         symbol_file.close()
         if OUTPUT:
             print("Done")
