@@ -124,90 +124,17 @@ def find_points(videos, csv_save_loc):
             data_frame.to_csv(os.path.join(csv_save_loc, f"{video_name}.csv"))
             print()
 
-def distance(point1, point2):
-    delta_x = point1[0] - point2[0]
-    delta_y = point1[1] - point2[1]
-
-    return np.math.sqrt(delta_x**2 + delta_y**2)
-
-def create_points_in_radius_dictionary(points, radius):
-    all_points_in_radius = {}
-    count = 0
-    total = len(points)
-    start = time.time()
-    for point in points:
-        points_in_radius = []
-        count += 1
-        sys.stdout.write(f"\rProgress: {count}/{total} {count/total * 100:.2f}% Elapsed Time: {time.time() - start:.2f}s")
-        for other_point in points:
-            if other_point == point:
-                continue
-            if distance(point, other_point) < radius:
-                points_in_radius.append(other_point)
-        all_points_in_radius[point] = points_in_radius
-    return all_points_in_radius
-
-def create_heatmap(all_points_in_radius, background_image, total_points, radius):
-    height, width, _ = background_image.shape
-    for y in range(0, height):
-        for x in range(0, width):
-            color = background_image[y, x]
-            prob = len(all_points_in_radius.get((x, y), []))/total_points
-            #color[0] = 255*prob
-            color[1] = 0
-            color[2] = 255*prob
-            background_image[y-1:y+1, x-1:x+1] = color
-    return background_image
-
-
-
-    """for point in all_points_in_radius:
-        for point_in_radius in all_points_in_radius[point]:
-            loc = int(point_in_radius[1]*height), int(point_in_radius[0]*width)
-            color = background_image[loc]
-            prob = len(all_points_in_radius[point])/total_points
-            color[2] = 255*prob
-            background_image[loc] = color
-    return background_image"""
-
-
-
 def main():
     USAGE ="""Usage: python3 signer_heatmap.py <path_to_video_file> [options]
    OR: python3 signer_heatmap.py --from_csv <path_to_csv_file> [options]
         -h, --help          Display this help message
-        --from_csv          Use this to create a heatmap directly from csv
         --save_csv          The location to save the csv file
         --radius            The radius to determin popularith (in pixels)
         --image             The image to draw heatmap on
 """
-    from_csv = check_cmd_arguments("--from_csv", "", False)
     csv_save_loc = check_cmd_arguments("--save_csv", "./", "./")
     background_image_loc = check_cmd_arguments("--image", False, False)
-    if from_csv == False:
-        find_points([sys.argv[1]], csv_save_loc)
-    else:
-        if from_csv == "":
-            print("--from_csv: Must pass csv file to create heatmap from")
-            exit()
-        else:
-            radius = int(check_cmd_arguments("--radius", 20, 20))
-            data = pd.read_csv(from_csv)
-            if background_image_loc == False:
-                print("--image: No image path passed!")
-                exit()
-            background_image = cv2.imread(background_image_loc)
-            height, width, _ = background_image.shape
-            num_points = -1
-            left_hand = convert_csv_to_list_of_tuple(data["Left Hand.x"][0:num_points],
-                                                     data["Left Hand.y"][0:num_points], height, width)
-            right_hand = convert_csv_to_list_of_tuple(data["Right Hand.x"][0:num_points],
-                                                     data["Right Hand.y"][0:num_points], height, width)
-            points_dict = create_points_in_radius_dictionary(left_hand + right_hand, radius)
-            print("Got points dict...")
-            heatmap_img = create_heatmap(points_dict, background_image, len(left_hand), radius)
-            print("Finished..")
-            cv2.imwrite("Heatmap.png", heatmap_img)
+    find_points([sys.argv[1]], csv_save_loc)
 
 if __name__ == "__main__":
     main()
