@@ -86,7 +86,7 @@ def main():
     # Read videos
     if os.path.isdir(VIDEO_FOLDER):
         video_paths = [file for file in os.listdir(VIDEO_FOLDER)
-                    if file.endswith(".mp4") or file.endswith(".mkv")]
+                    if file.endswith(".mp4") or file.endswith(".mkv") or file.endswith(".avi")]
     else:
         # If not direcotry, then assume it's a single file.
         # Allows user to pass single file to be symbolized
@@ -255,19 +255,19 @@ def main():
                                       2,
                                       colors[right_symbol],
                                       2)
-                    cv2.putText(frame, 
+                    cv2.putText(frame,
                                 f'Right: {right_symbol}',
                                 (1000, 50),
                                 font, 1,
                                 (0, 255, 255),
-                                2, 
+                                2,
                                 cv2.LINE_4)
-                    cv2.putText(frame, 
+                    cv2.putText(frame,
                                 f'Left: {left_symbol}',
                                 (1000, 100),
                                 font, 1,
                                 (0, 255, 255),
-                                2, 
+                                2,
                                 cv2.LINE_4)
                     cv2.imshow("Frame", frame)
                     out.write(frame)

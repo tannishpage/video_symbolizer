@@ -31,6 +31,12 @@ def check_cmd_arguments(arg, default, false_value):
 
     return arg_value
 
+def get_files():
+    for i, arg in enumerate(sys.argv[1:]):
+        if "--" in arg:
+            return sys.argv[1:i+1]
+    return sys.argv[1:]
+
 def get_average(landmarks):
     """
     Function calculates the average position of a list of landmarks
@@ -100,12 +106,19 @@ def find_points(videos, csv_save_loc):
         data["Right Hand.x"] = []
         data["Left Hand.y"] = []
         data["Right Hand.y"] = []
-
+        start = time.time()
         while frame_count < total_frames:
             ret, frame = video.read()
             frame_count += 1
             if ret:
-                sys.stdout.write(f"\rProcessing {video_loc}: {(frame_count/total_frames)*100:.2f}%")
+                percentage = frame_count / total_frames * 100
+                speed = frame_count / (time.time() - start)
+                eta = (total_frames - frame_count) / speed
+                sys.stdout.write("\r[{}{}] {:.2f}% {}/{}   Rate: {:.2f} fps   ETA: {:.2f}s".format(
+                                                    '='*int(percentage/2),
+                                                    '.' *(50 - int(percentage/2)),
+                                                    percentage, frame_count,
+                                                    total_frames, speed, eta))
                 height, width, _ = frame.shape
                 mp_pose_results = pose.process(frame)
                 if (mp_pose_results.pose_landmarks == None):
@@ -124,17 +137,91 @@ def find_points(videos, csv_save_loc):
             data_frame.to_csv(os.path.join(csv_save_loc, f"{video_name}.csv"))
             print()
 
+
+def normalized_find_points(videos, csv_save_loc, landmark):
+    mp_drawing = mp.solutions.drawing_utils
+    mp_drawing_styles = mp.solutions.drawing_styles
+    mp_pose = mp.solutions.pose
+    # Getting Enums for the hands for tracking
+    hand_landmarks_left = [mp_pose.PoseLandmark.LEFT_PINKY,
+                           mp_pose.PoseLandmark.LEFT_INDEX,
+                           mp_pose.PoseLandmark.LEFT_THUMB]
+
+    hand_landmarks_right = [mp_pose.PoseLandmark.RIGHT_PINKY,
+                            mp_pose.PoseLandmark.RIGHT_INDEX,
+                            mp_pose.PoseLandmark.RIGHT_THUMB]
+
+    pose = mp_pose.Pose(min_detection_confidence=0.5,
+                        min_tracking_confidence=0.5)
+
+    for video_path in videos:
+        video = cv2.VideoCapture(video_path)
+        video_loc = os.path.basename(video_path)
+        video_name = video_loc.replace(".mp4", "") if video_loc.endswith(".mp4") else video_loc.replace(".mkv", "")
+        #fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        #out = cv2.VideoWriter('./outputvid2.avi',fourcc, 25.0, (1920,1080))
+        frame_count = 0
+        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        data = {}
+        data["Left Hand.x"] = []
+        data["Right Hand.x"] = []
+        data["Left Hand.y"] = []
+        data["Right Hand.y"] = []
+        start = time.time()
+        while frame_count < total_frames:
+            ret, frame = video.read()
+            frame_count += 1
+            if ret:
+                percentage = frame_count / total_frames * 100
+                speed = frame_count / (time.time() - start)
+                eta = (total_frames - frame_count) / speed
+                sys.stdout.write("\r[{}{}] {:.2f}% {}/{}   Rate: {:.2f} fps   ETA: {:.2f}s".format(
+                                                    '='*int(percentage/2),
+                                                    '.' *(50 - int(percentage/2)),
+                                                    percentage, frame_count,
+                                                    total_frames, speed, eta))
+                height, width, _ = frame.shape
+                mp_pose_results = pose.process(frame)
+                if (mp_pose_results.pose_landmarks == None):
+                    continue
+                left_hand = get_landmark_values(hand_landmarks_left, mp_pose_results)
+                right_hand = get_landmark_values(hand_landmarks_right, mp_pose_results)
+                landmark_value = get_landmark_values([landmark], mp_pose_results)
+                # Leave the hand positions in their normalized form
+                # It will make it easier to compare with other videos
+                data["Left Hand.x"].append(abs(left_hand[0] - landmark_value[0]))
+                data["Left Hand.y"].append(abs(left_hand[1] - landmark_value[1]))
+                data["Right Hand.x"].append(abs(right_hand[0] - landmark_value[0]))
+                data["Right Hand.y"].append(abs(right_hand[1] - landmark_value[1]))
+
+        else:
+            data_frame = pd.DataFrame(data)
+            data_frame.to_csv(os.path.join(csv_save_loc, f"{video_name}.csv"))
+            print()
+
+
 def main():
-    USAGE ="""Usage: python3 signer_heatmap.py <path_to_video_file> [options]
-   OR: python3 signer_heatmap.py --from_csv <path_to_csv_file> [options]
+    USAGE ="""Usage: python3 signer_heatmap.py <path_to_video_file> [<path_to_video_file>...] [options]
         -h, --help          Display this help message
         --save_csv          The location to save the csv file
         --radius            The radius to determin popularith (in pixels)
-        --image             The image to draw heatmap on
+        --normalized        Extract a normalized hand position using distance
+                            from another landmark. LEFT_SHOULDER, RIGHT_SHOULDER,
+                            LEFT_HIP, RIGHT_HIP.
 """
+    files = get_files()
     csv_save_loc = check_cmd_arguments("--save_csv", "./", "./")
-    background_image_loc = check_cmd_arguments("--image", False, False)
-    find_points([sys.argv[1]], csv_save_loc)
+    normalized = check_cmd_arguments("--normalized", "LEFT_SHOULDER", False)
+
+    enums_dict = {"LEFT_SHOULDER":mp.solutions.pose.PoseLandmark.LEFT_SHOULDER,
+                  "RIGHT_SHOULDER":mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER,
+                  "LEFT_HIP":mp.solutions.pose.PoseLandmark.LEFT_HIP,
+                  "RIGHT_HIP":mp.solutions.pose.PoseLandmark.RIGHT_HIP}
+
+    if normalized == False:
+        find_points(files, csv_save_loc)
+    else:
+        normalized_find_points(files, csv_save_loc, enums_dict[normalized])
 
 if __name__ == "__main__":
     main()
